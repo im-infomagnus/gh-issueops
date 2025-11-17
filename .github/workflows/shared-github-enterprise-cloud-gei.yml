@@ -1,0 +1,217 @@
+﻿name: Azure DevOps to GitHub Migration [ado2gh]
+
+on:
+  workflow_call:
+    secrets:
+      TARGET_ADMIN_TOKEN:
+        required: true
+      SOURCE_ADMIN_TOKEN:
+        required: true
+
+jobs:
+  prepare:
+    name: Prepare
+    runs-on: ubuntu-latest
+    outputs:
+      repositories: ${{ steps.build-matrix.outputs.repositories }}
+      parsed-issue: ${{ steps.parse-issue-body.outputs.jsonString }}
+    if: github.event_name == 'issue_comment' && startsWith(github.event.comment.body, '/run-ado-migration')
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Parse issue body
+        id: parse-issue-body
+        uses: stefanbuck/github-issue-parser@v3
+        with:
+          template-path: .github/ISSUE_TEMPLATE/github-enterprise-cloud-migration.yml
+
+      - name: Log parsed issue json
+        run: echo "$JSON_STRING"
+        env:
+          JSON_STRING: ${{ steps.parse-issue-body.outputs.jsonString }}
+
+      - name: Add migration comment
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const body = `:hourglass: **Azure DevOps migration in progress.** [View workflow run for details](${context.payload.repository.html_url}/actions/runs/${context.runId})`
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body
+            })
+
+      - name: Build matrix
+        id: build-matrix
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const raw = (process.env.REPOSITORIES || '')
+              .split('\n')
+              .map(line => line.trim())
+              .filter(Boolean);
+
+            if (!raw.length) {
+              core.setFailed('No repository mappings were provided.');
+              return;
+            }
+
+            const mappings = raw.map((line, index) => {
+              const parts = line.split(',').map(part => part.trim()).filter(Boolean);
+              if (parts.length !== 2) {
+                throw new Error(`Line ${index + 1} must be in the format "ado-repo,github-repo". Received: "${line}"`);
+              }
+              return { adoRepo: parts[0], githubRepo: parts[1] };
+            });
+
+            core.setOutput('repositories', JSON.stringify(mappings));
+        env:
+          REPOSITORIES: ${{ steps.parse-issue-body.outputs.issueparser_repositories }}
+
+  migrate:
+    name: Run migrations
+    runs-on: ubuntu-latest
+    needs: prepare
+    strategy:
+      matrix:
+        repository: ${{ fromJson(needs.prepare.outputs.repositories) }}
+      fail-fast: false
+      max-parallel: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Parse issue body
+        id: parse-issue-body
+        uses: stefanbuck/github-issue-parser@v3
+        with:
+          template-path: .github/ISSUE_TEMPLATE/github-enterprise-cloud-migration.yml
+
+      - name: Authenticate gh CLI
+        run: |
+          if ! gh auth status >/dev/null 2>&1; then
+            echo "${GH_TOKEN}" | gh auth login --with-token --hostname github.com
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.TARGET_ADMIN_TOKEN }}
+
+      - name: Install ado2gh extension
+        run: gh extension install github/gh-ado2gh --force
+        env:
+          GH_TOKEN: ${{ secrets.TARGET_ADMIN_TOKEN }}
+
+      - name: Migrate repository
+        env:
+          GH_TOKEN: ${{ secrets.TARGET_ADMIN_TOKEN }}
+          GH_PAT: ${{ secrets.TARGET_ADMIN_TOKEN }}
+          ADO_PAT: ${{ secrets.SOURCE_ADMIN_TOKEN }}
+          AZURE_DEVOPS_TOKEN: ${{ secrets.SOURCE_ADMIN_TOKEN }}
+          ADO_ORG: ${{ steps.parse-issue-body.outputs.issueparser_ado_organization }}
+          ADO_TEAM_PROJECT: ${{ steps.parse-issue-body.outputs.issueparser_ado_team_project }}
+          ADO_REPO: ${{ matrix.repository.adoRepo }}
+          GITHUB_ORG: ${{ steps.parse-issue-body.outputs.issueparser_github_organization }}
+          GITHUB_REPO: ${{ matrix.repository.githubRepo }}
+        run: |
+          gh auth setup-git
+          gh ado2gh migrate-repo \
+            --ado-org "${ADO_ORG}" \
+            --ado-team-project "${ADO_TEAM_PROJECT}" \
+            --ado-repo "${ADO_REPO}" \
+            --github-org "${GITHUB_ORG}" \
+            --github-repo "${GITHUB_REPO}"
+
+      - name: Write repo migration status
+        if: always()
+        id: write-status
+        env:
+          ADO_REPO: ${{ matrix.repository.adoRepo }}
+          GITHUB_REPO: ${{ matrix.repository.githubRepo }}
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          label="${ADO_REPO} -> ${GITHUB_REPO}"
+          filename="$(echo "${GITHUB_REPO}" | tr '[:upper:]' '[:lower:]').txt"
+          echo "repo-label=${label}" >> "$GITHUB_OUTPUT"
+          echo "status-file=${filename}" >> "$GITHUB_OUTPUT"
+          echo "${ADO_REPO},${GITHUB_REPO},${JOB_STATUS}" > "${filename}"
+
+      - name: Upload repo migration status
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: statuses
+          path: ${{ steps.write-status.outputs.status-file }}
+          if-no-files-found: error
+
+  report-failure:
+    name: Report Failure
+    runs-on: ubuntu-latest
+    needs: [prepare, migrate]
+    if: failure()
+    steps:
+      - uses: actions/download-artifact@v4
+        id: download-artifact
+        with:
+          name: statuses
+          path: statuses
+
+      - name: Get failed repositories
+        id: get-failed-repos
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+
+            const failedRepos = [];
+
+            for (const file of fs.readdirSync('statuses')) {
+              if (path.extname(file) !== '.txt') continue;
+
+              const [adoRepo, githubRepo, status] = fs.readFileSync(path.join('statuses', file), 'utf-8')
+                .split(',')
+                .map(segment => segment.trim());
+
+              if ((status || '').toLowerCase() !== 'success') {
+                failedRepos.push(`${adoRepo} -> ${githubRepo}`);
+              }
+            }
+
+            core.setOutput('failed-repos', failedRepos.join('\n'));
+
+      - name: Report failed migration
+        if: always()
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const repositories = `${{ steps.get-failed-repos.outputs['failed-repos'] }}`.trim();
+            let body = `:no_entry: **Azure DevOps migration failed.** [View workflow run for details](${context.payload.repository.html_url}/actions/runs/${context.runId})`;
+
+            if ('${{ steps.download-artifact.conclusion }}' === 'success' && repositories) {
+              const lines = repositories.split('\n');
+              body += `\n\n${lines.length} repo mapping(s) failed:\n\
+\`\`\`\n${repositories}\n\`\`\``;
+            }
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body
+            })
+
+  report-success:
+    name: Report Success
+    runs-on: ubuntu-latest
+    needs: [prepare, migrate]
+    if: success()
+    steps:
+      - uses: actions/github-script@v6
+        with:
+          script: |
+            const body = `:tada: **Azure DevOps migration succeeded.** [View workflow run for details](${context.payload.repository.html_url}/actions/runs/${context.runId})`;
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body
+            })

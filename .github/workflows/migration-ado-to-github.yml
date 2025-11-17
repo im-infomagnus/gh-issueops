@@ -1,0 +1,15 @@
+name: Azure DevOps to GitHub Migration
+
+on:
+  issue_comment:
+    types: [created]
+
+jobs:
+  migrate:
+    if: contains(github.event.issue.labels.*.name, 'migration') &&
+        contains(github.event.issue.labels.*.name, 'ado2gh') &&
+        startsWith(github.event.comment.body, '/run-ado-migration')
+    uses: ./.github/workflows/shared-ado-to-github.yml
+    secrets:
+      TARGET_ADMIN_TOKEN: ${{ secrets.TARGET_ADMIN_TOKEN }}
+      SOURCE_ADMIN_TOKEN: ${{ secrets.SOURCE_ADMIN_TOKEN }}
