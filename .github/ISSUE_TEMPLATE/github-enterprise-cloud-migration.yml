@@ -1,38 +1,30 @@
-﻿name: Repo Migration from Azure DevOps to GitHub
-description: Perform a repository migration from Azure DevOps to GitHub using ado2gh
-title: "Repo Migration from Azure DevOps to GitHub"
+﻿name: Repo Migration from GitHub to GitHub
+description: Perform a repository migration from GitHub to GitHub using GEI
+title: "Repo Migration from GitHub to GitHub"
 body:
   - type: textarea
     id: repositories
     attributes:
       label: Repository mappings
-      description: Provide one mapping per line in the format `ado-repo,github-repo`.
+      description: Provide one mapping per line in the format `source-repo,target-repo`.
       placeholder: |
-        sample-ado-repo,sample-github-repo
+        sample-source-repo,sample-target-repo
         legacy-service,legacy-service
     validations:
       required: true
   - type: input
-    id: ado_organization
+    id: github_source_organization
     attributes:
-      label: Azure DevOps organization
-      description: Provide the Azure DevOps organization slug.
-      placeholder: adventure-works
+      label: GitHub source organization
+      description: Provide the source GitHub organization login.
+      placeholder: source-org
     validations:
       required: true
   - type: input
-    id: ado_team_project
+    id: github_target_organization
     attributes:
-      label: Azure DevOps team project
-      description: Provide the name of the Azure DevOps team project containing the repositories.
-      placeholder: FabrikamProject
-    validations:
-      required: true
-  - type: input
-    id: github_organization
-    attributes:
-      label: GitHub organization
-      description: Provide the destination GitHub organization login.
-      placeholder: my-github-org
+      label: GitHub target organization
+      description: Provide the target GitHub organization login.
+      placeholder: target-org
     validations:
       required: true

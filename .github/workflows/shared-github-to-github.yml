@@ -1,4 +1,4 @@
-﻿name: Azure DevOps to GitHub Migration [ado2gh]
+﻿name: GitHub to GitHub Migration [GEI]
 
 on:
   workflow_call:
@@ -15,7 +15,7 @@ jobs:
     outputs:
       repositories: ${{ steps.build-matrix.outputs.repositories }}
       parsed-issue: ${{ steps.parse-issue-body.outputs.jsonString }}
-    if: github.event_name == 'issue_comment' && startsWith(github.event.comment.body, '/run-ado-migration')
+    if: github.event_name == 'issue_comment' && startsWith(github.event.comment.body, '/run-gei-migration')
     steps:
       - uses: actions/checkout@v4
 
@@ -34,7 +34,7 @@ jobs:
         uses: actions/github-script@v6
         with:
           script: |
-            const body = `:hourglass: **Azure DevOps migration in progress.** [View workflow run for details](${context.payload.repository.html_url}/actions/runs/${context.runId})`
+            const body = `:hourglass: **GitHub to GitHub migration in progress.** [View workflow run for details](${context.payload.repository.html_url}/actions/runs/${context.runId})`
             github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
@@ -60,9 +60,9 @@ jobs:
             const mappings = raw.map((line, index) => {
               const parts = line.split(',').map(part => part.trim()).filter(Boolean);
               if (parts.length !== 2) {
-                throw new Error(`Line ${index + 1} must be in the format "ado-repo,github-repo". Received: "${line}"`);
+                throw new Error(`Line ${index + 1} must be in the format "source-repo,target-repo". Received: "${line}"`);
               }
-              return { adoRepo: parts[0], githubRepo: parts[1] };
+              return { sourceRepo: parts[0], targetRepo: parts[1] };
             });
 
             core.setOutput('repositories', JSON.stringify(mappings));
@@ -95,8 +95,8 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.TARGET_ADMIN_TOKEN }}
 
-      - name: Install ado2gh extension
-        run: gh extension install github/gh-ado2gh --force
+      - name: Install gei extension
+        run: gh extension install github/gh-gei --force
         env:
           GH_TOKEN: ${{ secrets.TARGET_ADMIN_TOKEN }}
 
@@ -104,35 +104,34 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.TARGET_ADMIN_TOKEN }}
           GH_PAT: ${{ secrets.TARGET_ADMIN_TOKEN }}
-          ADO_PAT: ${{ secrets.SOURCE_ADMIN_TOKEN }}
-          AZURE_DEVOPS_TOKEN: ${{ secrets.SOURCE_ADMIN_TOKEN }}
-          ADO_ORG: ${{ steps.parse-issue-body.outputs.issueparser_ado_organization }}
-          ADO_TEAM_PROJECT: ${{ steps.parse-issue-body.outputs.issueparser_ado_team_project }}
-          ADO_REPO: ${{ matrix.repository.adoRepo }}
-          GITHUB_ORG: ${{ steps.parse-issue-body.outputs.issueparser_github_organization }}
-          GITHUB_REPO: ${{ matrix.repository.githubRepo }}
+          GH_SOURCE_PAT: ${{ secrets.SOURCE_ADMIN_TOKEN }}
+          GITHUB_SOURCE_ORG: ${{ steps.parse-issue-body.outputs.issueparser_github_source_organization }}
+          SOURCE_REPO: ${{ matrix.repository.sourceRepo }}
+          GITHUB_TARGET_ORG: ${{ steps.parse-issue-body.outputs.issueparser_github_target_organization }}
+          TARGET_REPO: ${{ matrix.repository.targetRepo }}
         run: |
           gh auth setup-git
-          gh ado2gh migrate-repo \
-            --ado-org "${ADO_ORG}" \
-            --ado-team-project "${ADO_TEAM_PROJECT}" \
-            --ado-repo "${ADO_REPO}" \
-            --github-org "${GITHUB_ORG}" \
-            --github-repo "${GITHUB_REPO}"
+          gh gei migrate-repo \
+            --github-source-org "${GITHUB_SOURCE_ORG}" \
+            --source-repo "${SOURCE_REPO}" \
+            --github-target-org "${GITHUB_TARGET_ORG}" \
+            --target-repo "${TARGET_REPO}" \
+            --ghes-api-url "https://api.github.com" \
+            --target-api-url "https://api.github.com"
 
       - name: Write repo migration status
         if: always()
         id: write-status
         env:
-          ADO_REPO: ${{ matrix.repository.adoRepo }}
-          GITHUB_REPO: ${{ matrix.repository.githubRepo }}
+          SOURCE_REPO: ${{ matrix.repository.sourceRepo }}
+          TARGET_REPO: ${{ matrix.repository.targetRepo }}
           JOB_STATUS: ${{ job.status }}
         run: |
-          label="${ADO_REPO} -> ${GITHUB_REPO}"
-          filename="$(echo "${GITHUB_REPO}" | tr '[:upper:]' '[:lower:]').txt"
+          label="${SOURCE_REPO} -> ${TARGET_REPO}"
+          filename="$(echo "${TARGET_REPO}" | tr '[:upper:]' '[:lower:]').txt"
           echo "repo-label=${label}" >> "$GITHUB_OUTPUT"
           echo "status-file=${filename}" >> "$GITHUB_OUTPUT"
-          echo "${ADO_REPO},${GITHUB_REPO},${JOB_STATUS}" > "${filename}"
+          echo "${SOURCE_REPO},${TARGET_REPO},${JOB_STATUS}" > "${filename}"
 
       - name: Upload repo migration status
         if: always()
@@ -167,12 +166,12 @@ jobs:
             for (const file of fs.readdirSync('statuses')) {
               if (path.extname(file) !== '.txt') continue;
 
-              const [adoRepo, githubRepo, status] = fs.readFileSync(path.join('statuses', file), 'utf-8')
+              const [sourceRepo, targetRepo, status] = fs.readFileSync(path.join('statuses', file), 'utf-8')
                 .split(',')
                 .map(segment => segment.trim());
 
               if ((status || '').toLowerCase() !== 'success') {
-                failedRepos.push(`${adoRepo} -> ${githubRepo}`);
+                failedRepos.push(`${sourceRepo} -> ${targetRepo}`);
               }
             }
 
@@ -184,7 +183,7 @@ jobs:
         with:
           script: |
             const repositories = `${{ steps.get-failed-repos.outputs['failed-repos'] }}`.trim();
-            let body = `:no_entry: **Azure DevOps migration failed.** [View workflow run for details](${context.payload.repository.html_url}/actions/runs/${context.runId})`;
+            let body = `:no_entry: **GitHub to GitHub migration failed.** [View workflow run for details](${context.payload.repository.html_url}/actions/runs/${context.runId})`;
 
             if ('${{ steps.download-artifact.conclusion }}' === 'success' && repositories) {
               const lines = repositories.split('\n');
@@ -207,7 +206,7 @@ jobs:
       - uses: actions/github-script@v6
         with:
           script: |
-            const body = `:tada: **Azure DevOps migration succeeded.** [View workflow run for details](${context.payload.repository.html_url}/actions/runs/${context.runId})`;
+            const body = `:tada: **GitHub to GitHub migration succeeded.** [View workflow run for details](${context.payload.repository.html_url}/actions/runs/${context.runId})`;
             github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
