@@ -115,9 +115,7 @@ jobs:
             --github-source-org "${GITHUB_SOURCE_ORG}" \
             --source-repo "${SOURCE_REPO}" \
             --github-target-org "${GITHUB_TARGET_ORG}" \
-            --target-repo "${TARGET_REPO}" \
-            --ghes-api-url "https://api.github.com" \
-            --target-api-url "https://api.github.com"
+            --target-repo "${TARGET_REPO}" 
 
       - name: Write repo migration status
         if: always()
