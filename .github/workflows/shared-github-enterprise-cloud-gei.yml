@@ -188,8 +188,7 @@ jobs:
 
             if ('${{ steps.download-artifact.conclusion }}' === 'success' && repositories) {
               const lines = repositories.split('\n');
-              body += `\n\n${lines.length} repo mapping(s) failed:\n\
-\`\`\`\n${repositories}\n\`\`\``;
+              body += `\n\n${lines.length} repo mapping(s) failed:\n\`\`\`\n${repositories}\n\`\`\``;
             }
 
             github.rest.issues.createComment({
