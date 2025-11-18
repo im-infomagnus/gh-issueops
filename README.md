@@ -10,6 +10,7 @@ The automation is triggered from an issue template and a slash command so that m
 	- `TARGET_ADMIN_TOKEN`: GitHub personal access token (classic or fine-grained) with the permissions required to create repositories, set secrets, and run migrations in the destination organization.
 	- `SOURCE_ADMIN_TOKEN`: GitHub personal access token (classic or fine-grained) with access to the source organization and repositories being migrated.
 2. **Issue template enabled** – the template in `.github/workflows/ISSUE_TEMPLATE/github-enterprise-cloud-migration.yml` must remain checked in so that issues can be created from it.
+3. **Labels created** – Ensure the labels `migration` and `gei` exist in the repository.
 
 ## How the workflow works
 
@@ -27,13 +28,14 @@ Each migration run publishes an artifact named `statuses` that lists the source 
 	- List one mapping per line in the `source-repo,target-repo` format (no URLs).
 	- Provide the source GitHub organization and target GitHub organization.
 2. **Submit the issue.**
-3. **Queue the migration** by commenting on the issue with:
+3. **Add labels** to the issue: `migration` and `gei`.
+4. **Queue the migration** by commenting on the issue with:
 
 	```
 	/run-gei-migration
 	```
 
-4. **Monitor progress.** The workflow posts a comment with a link to the run. When the run completes, a success or failure comment is added along with per-repository details.
+5. **Monitor progress.** The workflow posts a comment with a link to the run. When the run completes, a success or failure comment is added along with per-repository details.
 
 ## Notes & troubleshooting
 
