@@ -7,7 +7,7 @@ on:
 jobs:
   migrate-org:
     if: contains(github.event.issue.labels.*.name, 'migration') &&
-        contains(github.event.issue.labels.*.name, 'gei-org') &&
+        contains(github.event.issue.labels.*.name, 'gei') &&
         startsWith(github.event.comment.body, '/run-gei-org-migration')
     uses: ./.github/workflows/shared-org-migration.yml
     secrets:
