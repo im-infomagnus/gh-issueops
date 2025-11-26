@@ -1,0 +1,95 @@
+name: GitHub Org Migration [GEI]
+
+on:
+  workflow_call:
+    secrets:
+      TARGET_ADMIN_TOKEN:
+        required: true
+      SOURCE_ADMIN_TOKEN:
+        required: true
+
+jobs:
+  migrate-org:
+    name: Run Org Migration
+    runs-on: ubuntu-latest
+    if: github.event_name == 'issue_comment' && startsWith(github.event.comment.body, '/run-gei-org-migration')
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Parse issue body
+        id: parse-issue-body
+        uses: stefanbuck/github-issue-parser@v3
+        with:
+          template-path: .github/ISSUE_TEMPLATE/github-org-migration.yml
+
+      - name: Add migration comment
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const body = `:hourglass: **GitHub Org migration in progress.** [View workflow run for details](${context.payload.repository.html_url}/actions/runs/${context.runId})`
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body
+            })
+
+      - name: Authenticate gh CLI
+        run: |
+          if ! gh auth status >/dev/null 2>&1; then
+            echo "${GH_TOKEN}" | gh auth login --with-token --hostname github.com
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.TARGET_ADMIN_TOKEN }}
+
+      - name: Install gei extension
+        run: gh extension install github/gh-gei --force
+        env:
+          GH_TOKEN: ${{ secrets.TARGET_ADMIN_TOKEN }}
+
+      - name: Migrate Organization
+        env:
+          GH_TOKEN: ${{ secrets.TARGET_ADMIN_TOKEN }}
+          GH_PAT: ${{ secrets.TARGET_ADMIN_TOKEN }}
+          GH_SOURCE_PAT: ${{ secrets.SOURCE_ADMIN_TOKEN }}
+          GITHUB_SOURCE_ORG: ${{ steps.parse-issue-body.outputs.issueparser_github_source_organization }}
+          GITHUB_TARGET_ORG: ${{ steps.parse-issue-body.outputs.issueparser_github_target_organization }}
+          GITHUB_TARGET_ENTERPRISE: ${{ steps.parse-issue-body.outputs.issueparser_github_target_enterprise }}
+          TARGET_API_URL: ${{ steps.parse-issue-body.outputs.issueparser_target_api_url }}
+        run: |
+          gh auth setup-git
+          
+          CMD="gh gei migrate-org --github-source-org \"${GITHUB_SOURCE_ORG}\" --github-target-org \"${GITHUB_TARGET_ORG}\" --github-target-enterprise \"${GITHUB_TARGET_ENTERPRISE}\""
+          
+          if [ -n "${TARGET_API_URL}" ]; then
+            CMD="$CMD --target-api-url \"${TARGET_API_URL}\""
+            export TARGET_API_URL="${TARGET_API_URL}"
+          fi
+          
+          eval $CMD
+
+      - name: Report Success
+        if: success()
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const body = `:tada: **GitHub Org migration succeeded.** [View workflow run for details](${context.payload.repository.html_url}/actions/runs/${context.runId})`;
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body
+            })
+
+      - name: Report Failure
+        if: failure()
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const body = `:no_entry: **GitHub Org migration failed.** [View workflow run for details](${context.payload.repository.html_url}/actions/runs/${context.runId})`;
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body
+            })

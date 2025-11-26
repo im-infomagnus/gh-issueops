@@ -1,0 +1,38 @@
+name: Org Migration from GitHub to GitHub
+description: Perform an organization migration from GitHub to GitHub using GEI
+title: "Org Migration from GitHub to GitHub"
+body:
+  - type: input
+    id: github_source_organization
+    attributes:
+      label: GitHub source organization
+      description: Provide the source GitHub organization login.
+      placeholder: source-org
+    validations:
+      required: true
+  - type: input
+    id: github_target_organization
+    attributes:
+      label: GitHub target organization
+      description: Provide the target GitHub organization login.
+      placeholder: target-org
+    validations:
+      required: true
+  - type: input
+    id: github_target_enterprise
+    attributes:
+      label: GitHub target enterprise
+      description: Provide the target GitHub enterprise slug.
+      placeholder: target-enterprise
+    validations:
+      required: true
+  - type: input
+    id: target_api_url
+    attributes:
+      label: Target API URL (Optional)
+      description: |
+        If you're migrating to GHE.com, provide the base API URL for your enterprise's subdomain.
+        For example: https://api.octocorp.ghe.com
+      placeholder: https://api.SUBDOMAIN.ghe.com
+    validations:
+      required: false

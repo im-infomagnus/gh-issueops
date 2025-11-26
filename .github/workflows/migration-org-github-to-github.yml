@@ -1,0 +1,15 @@
+name: GitHub Org Migration
+
+on:
+  issue_comment:
+    types: [created]
+
+jobs:
+  migrate-org:
+    if: contains(github.event.issue.labels.*.name, 'migration') &&
+        contains(github.event.issue.labels.*.name, 'gei-org') &&
+        startsWith(github.event.comment.body, '/run-gei-org-migration')
+    uses: ./.github/workflows/shared-org-migration.yml
+    secrets:
+      TARGET_ADMIN_TOKEN: ${{ secrets.TARGET_ADMIN_TOKEN }}
+      SOURCE_ADMIN_TOKEN: ${{ secrets.SOURCE_ADMIN_TOKEN }}
