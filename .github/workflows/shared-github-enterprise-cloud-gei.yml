@@ -90,10 +90,10 @@ jobs:
       - name: Authenticate gh CLI
         run: |
           if ! gh auth status >/dev/null 2>&1; then
-            echo "${GH_TOKEN}" | gh auth login --with-token --hostname github.com
+            echo "${ENV_GH_TOKEN}" | gh auth login --with-token --hostname github.com
           fi
         env:
-          GH_TOKEN: ${{ secrets.TARGET_ADMIN_TOKEN }}
+          ENV_GH_TOKEN: ${{ secrets.TARGET_ADMIN_TOKEN }}
 
       - name: Install ado2gh extension
         run: gh extension install github/gh-ado2gh --force
