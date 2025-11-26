@@ -28,3 +28,11 @@ body:
       placeholder: target-org
     validations:
       required: true
+  - type: input
+    id: ghe_subdomain
+    attributes:
+      label: GHE Subdomain (Optional)
+      description: Provide the subdomain for the GHE instance (e.g., "my-subdomain" for https://api.my-subdomain.ghe.com).
+      placeholder: my-subdomain
+    validations:
+      required: false

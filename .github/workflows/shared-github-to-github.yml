@@ -109,13 +109,22 @@ jobs:
           SOURCE_REPO: ${{ matrix.repository.sourceRepo }}
           GITHUB_TARGET_ORG: ${{ steps.parse-issue-body.outputs.issueparser_github_target_organization }}
           TARGET_REPO: ${{ matrix.repository.targetRepo }}
+          GHE_SUBDOMAIN: ${{ steps.parse-issue-body.outputs.issueparser_ghe_subdomain }}
         run: |
           gh auth setup-git
+
+          ARGS=""
+          if [ -n "$GHE_SUBDOMAIN" ]; then
+            export TARGET_API_URL="https://api.${GHE_SUBDOMAIN}.ghe.com"
+            ARGS="$ARGS --target-api-url ${TARGET_API_URL}"
+          fi
+
           gh gei migrate-repo \
             --github-source-org "${GITHUB_SOURCE_ORG}" \
             --source-repo "${SOURCE_REPO}" \
             --github-target-org "${GITHUB_TARGET_ORG}" \
-            --target-repo "${TARGET_REPO}" 
+            --target-repo "${TARGET_REPO}" \
+            $ARGS 
 
       - name: Write repo migration status
         if: always()
