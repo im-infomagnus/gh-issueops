@@ -107,6 +107,7 @@ jobs:
           unset GITHUB_TOKEN
           unset GH_TOKEN
           HOSTNAME="github.com"
+          echo "${GHE_SUBDOMAIN}"
           if [ -n "${GHE_SUBDOMAIN}" ]; then
             HOSTNAME="api.${GHE_SUBDOMAIN}.ghe.com"
           fi
@@ -135,11 +136,15 @@ jobs:
         run: |
           gh auth setup-git
 
+          echo "HERE! GHE_SUBDOMAIN: ${GHE_SUBDOMAIN}"
+
           ARGS=""
           if [ -n "$GHE_SUBDOMAIN" ]; then
             export TARGET_API_URL="https://api.${GHE_SUBDOMAIN}.ghe.com"
             ARGS="$ARGS --target-api-url ${TARGET_API_URL}"
           fi
+
+          echo "HERE! TARGET_API_URL: ${TARGET_API_URL}"
 
           gh gei migrate-repo \
             --github-source-org "${GITHUB_SOURCE_ORG}" \
