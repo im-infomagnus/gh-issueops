@@ -136,7 +136,9 @@ jobs:
         run: |
           gh auth setup-git
 
-          echo "HERE! GHE_SUBDOMAIN: ${GHE_SUBDOMAIN}"
+          // Echo the value of GHE_SUBDOMAIN for debugging
+          // Make sure this works in a GitHub Actions workflow
+          echo "GHE_SUBDOMAIN is set to: '${GHE_SUBDOMAIN}'"
 
           ARGS=""
           if [ -n "$GHE_SUBDOMAIN" ]; then
@@ -144,7 +146,8 @@ jobs:
             ARGS="$ARGS --target-api-url ${TARGET_API_URL}"
           fi
 
-          echo "HERE! TARGET_API_URL: ${TARGET_API_URL}"
+          // Echo the value of TARGET_API_URL for debugging
+          echo "TARGET_API_URL is set to: '${TARGET_API_URL}'"
 
           gh gei migrate-repo \
             --github-source-org "${GITHUB_SOURCE_ORG}" \
