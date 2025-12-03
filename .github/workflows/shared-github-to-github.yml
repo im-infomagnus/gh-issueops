@@ -106,10 +106,14 @@ jobs:
         run: |
           unset GITHUB_TOKEN
           unset GH_TOKEN
+
+          # Strip any existing api. prefix and .ghe.com suffix from user input
+          CLEANED_SUBDOMAIN="${GHE_SUBDOMAIN#api.}"
+          CLEANED_SUBDOMAIN="${CLEANED_SUBDOMAIN%.ghe.com}"
+
           HOSTNAME="github.com"
-          echo "${GHE_SUBDOMAIN}"
-          if [ -n "${GHE_SUBDOMAIN}" ]; then
-            HOSTNAME="api.${GHE_SUBDOMAIN}.ghe.com"
+          if [ -n "${CLEANED_SUBDOMAIN}" ]; then
+            HOSTNAME="api.${CLEANED_SUBDOMAIN}.ghe.com"
           fi
           if ! gh auth status --hostname "${HOSTNAME}" >/dev/null 2>&1; then
             echo "${ENV_GH_TOKEN}" | gh auth login --with-token --hostname "${HOSTNAME}"
@@ -136,13 +140,13 @@ jobs:
         run: |
           gh auth setup-git
 
-          // Echo the value of GHE_SUBDOMAIN for debugging
-          // Make sure this works in a GitHub Actions workflow
-          echo "GHE_SUBDOMAIN is set to: '${GHE_SUBDOMAIN}'"
+          # Strip any existing api. prefix and .ghe.com suffix from user input
+          CLEANED_SUBDOMAIN="${GHE_SUBDOMAIN#api.}"
+          CLEANED_SUBDOMAIN="${CLEANED_SUBDOMAIN%.ghe.com}"
 
           ARGS=""
-          if [ -n "$GHE_SUBDOMAIN" ]; then
-            export TARGET_API_URL="https://api.${GHE_SUBDOMAIN}.ghe.com"
+          if [ -n "$CLEANED_SUBDOMAIN" ]; then
+            export TARGET_API_URL="https://api.${CLEANED_SUBDOMAIN}.ghe.com"
             ARGS="$ARGS --target-api-url ${TARGET_API_URL}"
           fi
 
