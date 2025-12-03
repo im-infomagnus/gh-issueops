@@ -145,7 +145,7 @@ jobs:
           CLEANED_SUBDOMAIN="${CLEANED_SUBDOMAIN%.ghe.com}"
 
           ARGS=""
-          if [ -n "$CLEANED_SUBDOMAIN" ]; then
+          if [ -n "${CLEANED_SUBDOMAIN}" ]; then
             export TARGET_API_URL="https://api.${CLEANED_SUBDOMAIN}.ghe.com"
             ARGS="$ARGS --target-api-url ${TARGET_API_URL}"
           fi
