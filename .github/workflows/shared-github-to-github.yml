@@ -93,7 +93,10 @@ jobs:
           unset GH_TOKEN
           HOSTNAME="github.com"
           if [ -n "${GHE_SUBDOMAIN}" ]; then
-            HOSTNAME="api.${GHE_SUBDOMAIN}.ghe.com"
+            # Omit "api." prefix for gh CLI hostname because
+            # gh auth login automattcally prepends `api.` the 
+            # the hostname when making API calls.
+            HOSTNAME="${GHE_SUBDOMAIN}.ghe.com"
           fi
           if ! gh auth status --hostname "${HOSTNAME}" >/dev/null 2>&1; then
             echo "${ENV_GH_TOKEN}" | gh auth login --with-token --hostname "${HOSTNAME}"
