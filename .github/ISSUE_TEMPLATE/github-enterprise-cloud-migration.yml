@@ -1,6 +1,7 @@
 ﻿name: Repo Migration from GitHub to GitHub
 description: Perform a repository migration from GitHub to GitHub using GEI
 title: "Repo Migration from GitHub to GitHub"
+labels: ["gei", "migration"]
 body:
   - type: textarea
     id: repositories
