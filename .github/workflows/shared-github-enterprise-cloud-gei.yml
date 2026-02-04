@@ -100,7 +100,8 @@ jobs:
       - name: Install ado2gh extension
         run: gh extension install github/gh-ado2gh --force
         env:
-          GH_TOKEN: ${{ secrets.TARGET_ADMIN_TOKEN }}
+          # Use the workflow token so the download is not blocked by SAML on the admin PAT
+          GH_TOKEN: ${{ github.token }}
 
       - name: Migrate repository
         env:

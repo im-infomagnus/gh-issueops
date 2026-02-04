@@ -108,7 +108,8 @@ jobs:
       - name: Install gei extension
         run: gh extension install github/gh-gei --force
         env:
-          GH_TOKEN: ${{ secrets.TARGET_ADMIN_TOKEN }}
+          # Use the workflow token so the download is not blocked by SAML on the admin PAT
+          GH_TOKEN: ${{ github.token }}
           GH_HOST: github.com
 
       - name: Migrate repository
