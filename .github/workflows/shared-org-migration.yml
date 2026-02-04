@@ -34,6 +34,13 @@ jobs:
               body
             })
 
+      - name: Install gei extension
+        run: gh extension install github/gh-gei --force
+        env:
+          # Use the workflow token so the download is not blocked by SAML on the admin PAT
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
+
       - name: Authenticate gh CLI
         run: |
           unset GITHUB_TOKEN
@@ -43,12 +50,6 @@ jobs:
           fi
         env:
           ENV_GH_TOKEN: ${{ secrets.TARGET_ADMIN_TOKEN }}
-
-      - name: Install gei extension
-        run: gh extension install github/gh-gei --force
-        env:
-          # Use the workflow token so the download is not blocked by SAML on the admin PAT
-          GH_TOKEN: ${{ github.token }}
 
       - name: Migrate Organization
         env:

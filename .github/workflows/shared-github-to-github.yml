@@ -42,6 +42,14 @@ jobs:
               body
             })
 
+      - name: Install gei extension
+        run: gh extension install github/gh-gei --force
+        env:
+          # Use the workflow token so the download is not blocked by SAML on the admin PAT
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
+          GH_HOST: github.com
+
       - name: Build matrix
         id: build-matrix
         uses: actions/github-script@v6
@@ -104,13 +112,6 @@ jobs:
         env:
           ENV_GH_TOKEN: ${{ secrets.TARGET_ADMIN_TOKEN }}
           GHE_SUBDOMAIN: ${{ steps.parse-issue-body.outputs.issueparser_ghe_subdomain }}
-
-      - name: Install gei extension
-        run: gh extension install github/gh-gei --force
-        env:
-          # Use the workflow token so the download is not blocked by SAML on the admin PAT
-          GH_TOKEN: ${{ github.token }}
-          GH_HOST: github.com
 
       - name: Migrate repository
         env:
